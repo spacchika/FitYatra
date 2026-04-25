@@ -118,9 +118,8 @@ abstract class FitYatraDatabase : RoomDatabase() {
                 val instance = Room.databaseBuilder(
                     context.applicationContext,
                     FitYatraDatabase::class.java,
-                    "fityatra_database"
+                    "fityatra_database_v3"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                     .fallbackToDestructiveMigration()
                     .build()
                 INSTANCE = instance
