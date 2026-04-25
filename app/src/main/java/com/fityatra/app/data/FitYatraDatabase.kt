@@ -42,24 +42,40 @@ abstract class FitYatraDatabase : RoomDatabase() {
 
         private val MIGRATION_1_2 = object : Migration(1, 2) {
             override fun migrate(database: SupportSQLiteDatabase) {
-                database.execSQL(
-                    "ALTER TABLE workout_plan_exercises ADD COLUMN exerciseType TEXT NOT NULL DEFAULT 'main'"
+                val cursor = database.query(
+                    "SELECT name FROM sqlite_master WHERE type='table' AND name='workout_plan_exercises'"
                 )
-                database.execSQL(
-                    "ALTER TABLE workout_plan_exercises ADD COLUMN sets INTEGER NOT NULL DEFAULT 3"
-                )
-                database.execSQL(
-                    "ALTER TABLE workout_plan_exercises ADD COLUMN reps INTEGER NOT NULL DEFAULT 10"
-                )
-                database.execSQL(
-                    "ALTER TABLE workout_plan_exercises ADD COLUMN weight REAL NOT NULL DEFAULT 0.0"
-                )
-                database.execSQL(
-                    "ALTER TABLE workout_plan_exercises ADD COLUMN restSeconds INTEGER NOT NULL DEFAULT 60"
-                )
-                database.execSQL(
-                    "ALTER TABLE workout_plan_exercises ADD COLUMN notes TEXT NOT NULL DEFAULT ''"
-                )
+                val tableExists = cursor.moveToFirst()
+                cursor.close()
+
+                if (tableExists) {
+                    database.execSQL("ALTER TABLE workout_plan_exercises ADD COLUMN exerciseType TEXT NOT NULL DEFAULT 'main'")
+                    database.execSQL("ALTER TABLE workout_plan_exercises ADD COLUMN sets INTEGER NOT NULL DEFAULT 3")
+                    database.execSQL("ALTER TABLE workout_plan_exercises ADD COLUMN reps INTEGER NOT NULL DEFAULT 10")
+                    database.execSQL("ALTER TABLE workout_plan_exercises ADD COLUMN weight REAL NOT NULL DEFAULT 0.0")
+                    database.execSQL("ALTER TABLE workout_plan_exercises ADD COLUMN restSeconds INTEGER NOT NULL DEFAULT 60")
+                    database.execSQL("ALTER TABLE workout_plan_exercises ADD COLUMN notes TEXT NOT NULL DEFAULT ''")
+                } else {
+                    database.execSQL(
+                        """
+                        CREATE TABLE IF NOT EXISTS workout_plan_exercises (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                            planId INTEGER NOT NULL,
+                            exerciseId INTEGER NOT NULL,
+                            dayOfWeek INTEGER NOT NULL,
+                            orderInDay INTEGER NOT NULL,
+                            exerciseType TEXT NOT NULL DEFAULT 'main',
+                            sets INTEGER NOT NULL DEFAULT 3,
+                            reps INTEGER NOT NULL DEFAULT 10,
+                            weight REAL NOT NULL DEFAULT 0.0,
+                            restSeconds INTEGER NOT NULL DEFAULT 60,
+                            notes TEXT NOT NULL DEFAULT '',
+                            FOREIGN KEY(planId) REFERENCES workout_plans(id) ON DELETE CASCADE,
+                            FOREIGN KEY(exerciseId) REFERENCES exercises(id) ON DELETE CASCADE
+                        )
+                        """.trimIndent()
+                    )
+                }
             }
         }
 
