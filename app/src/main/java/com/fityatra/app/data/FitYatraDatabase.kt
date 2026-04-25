@@ -105,6 +105,7 @@ abstract class FitYatraDatabase : RoomDatabase() {
                     "fityatra_database"
                 )
                     .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                    .fallbackToDestructiveMigration()
                     .build()
                 INSTANCE = instance
                 instance
