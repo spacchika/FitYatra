@@ -108,16 +108,17 @@ class HealthConnectManager(private val context: Context) {
                 val totalMinutes = ChronoUnit.MINUTES.between(
                     lastSleep.startTime, lastSleep.endTime
                 ).toFloat()
-                val asleepMinutes = lastSleep.stages
-                    .filter { stage ->
-                        stage.stage == SleepSessionRecord.STAGE_TYPE_SLEEPING ||
-                        stage.stage == SleepSessionRecord.STAGE_TYPE_DEEP ||
-                        stage.stage == SleepSessionRecord.STAGE_TYPE_REM ||
-                        stage.stage == SleepSessionRecord.STAGE_TYPE_LIGHT
-                    }
-                    .sumOf { stage ->
-                        ChronoUnit.MINUTES.between(stage.startTime, stage.endTime)
-                    }.toFloat()
+                // STAGE_TYPE_SLEEPING=2, STAGE_TYPE_LIGHT=4, STAGE_TYPE_DEEP=5, STAGE_TYPE_REM=6
+                val asleepStageTypes = setOf(2, 4, 5, 6)
+                val asleepMinutes = if (lastSleep.stages.isNotEmpty()) {
+                    lastSleep.stages
+                        .filter { stage -> stage.stage in asleepStageTypes }
+                        .sumOf { stage ->
+                            ChronoUnit.MINUTES.between(stage.startTime, stage.endTime)
+                        }.toFloat()
+                } else {
+                    totalMinutes // no stage detail — treat full session as sleep
+                }
                 if (totalMinutes > 0) {
                     sleepEfficiency = (asleepMinutes / totalMinutes) * 100f
                 }

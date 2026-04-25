@@ -529,7 +529,7 @@ fun AiCoachBottomBar(navController: NavHostController, currentRoute: String) {
         NavigationBarItem(
             selected = currentRoute == "workout_plans",
             onClick = { navController.navigate("workout_plans") },
-            icon = { Icon(Icons.Default.CalendarMonth, contentDescription = null) },
+            icon = { Icon(Icons.Default.DateRange, contentDescription = null) },
             label = { Text("Plans") }
         )
         NavigationBarItem(
