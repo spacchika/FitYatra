@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalMaterial3Api::class)
+
 package com.fityatra.app.ui.screens
 
 import androidx.compose.animation.AnimatedContent
