@@ -74,7 +74,7 @@ class HealthConnectManager(private val context: Context) {
                 )
             ).records
             hrv = records.lastOrNull()?.heartRateVariabilityMillis?.toFloat()
-        } catch (_: Exception) {}
+        } catch (e: Exception) { /* no HRV data */ }
 
         try {
             val records = client.readRecords(
@@ -84,7 +84,7 @@ class HealthConnectManager(private val context: Context) {
                 )
             ).records
             restingHr = records.lastOrNull()?.beatsPerMinute?.toFloat()
-        } catch (_: Exception) {}
+        } catch (e: Exception) { /* no resting HR data */ }
 
         try {
             val records = client.readRecords(
@@ -94,7 +94,7 @@ class HealthConnectManager(private val context: Context) {
                 )
             ).records
             vo2Max = records.lastOrNull()?.vo2MillilitersPerMinuteKilogram?.toFloat()
-        } catch (_: Exception) {}
+        } catch (e: Exception) { /* no VO2 max data */ }
 
         try {
             val records = client.readRecords(
@@ -122,7 +122,7 @@ class HealthConnectManager(private val context: Context) {
                     sleepEfficiency = (asleepMinutes / totalMinutes) * 100f
                 }
             }
-        } catch (_: Exception) {}
+        } catch (e: Exception) { /* no sleep data */ }
 
         WellnessData(
             hrv = hrv,
