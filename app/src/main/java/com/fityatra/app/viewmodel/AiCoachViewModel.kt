@@ -61,28 +61,34 @@ class AiCoachViewModel(
 
     private fun loadContext() {
         viewModelScope.launch {
-            _userProfile.value = userProfileRepository.getUserProfile()
-            _activePlan.value = workoutRepository.getActivePlan()
-            _healthConnectAvailable.value = healthConnectManager.isAvailable()
+            try {
+                _userProfile.value = userProfileRepository.getUserProfile()
+                _activePlan.value = workoutRepository.getActivePlan()
+                _healthConnectAvailable.value = healthConnectManager.isAvailable()
 
-            if (healthConnectManager.isAvailable() && healthConnectManager.hasPermissions()) {
-                _wellnessData.value = healthConnectManager.readWellnessData()
+                if (healthConnectManager.isAvailable() && healthConnectManager.hasPermissions()) {
+                    _wellnessData.value = healthConnectManager.readWellnessData()
+                }
+
+                loadTodaysExercises()
+            } catch (e: Exception) {
+                _errorMessage.value = "Failed to load data: ${e.message}"
             }
-
-            loadTodaysExercises()
         }
     }
 
     private fun loadTodaysExercises() {
         viewModelScope.launch {
-            val plan = _activePlan.value ?: return@launch
-            // Convert Calendar.DAY_OF_WEEK (Sun=1..Sat=7) to plan day (Mon=1..Sun=7)
-            val calDay = Calendar.getInstance().get(Calendar.DAY_OF_WEEK)
-            val planDay = ((calDay + 5) % 7) + 1
-
-            workoutRepository.getExercisesByPlanAndDay(plan.id, planDay).collect { exercises ->
-                _todaysExercises.value = exercises
-                resolveExerciseNames(exercises)
+            try {
+                val plan = _activePlan.value ?: return@launch
+                val calDay = Calendar.getInstance().get(Calendar.DAY_OF_WEEK)
+                val planDay = ((calDay + 5) % 7) + 1
+                workoutRepository.getExercisesByPlanAndDay(plan.id, planDay).collect { exercises ->
+                    _todaysExercises.value = exercises
+                    resolveExerciseNames(exercises)
+                }
+            } catch (e: Exception) {
+                _errorMessage.value = "Failed to load exercises: ${e.message}"
             }
         }
     }
@@ -100,9 +106,13 @@ class AiCoachViewModel(
 
     private fun observeTodaysMessages() {
         viewModelScope.launch {
-            val today = com.fityatra.app.ai.AiPromptBuilder.todayDateString()
-            aiCoachRepository.getMessagesByDate(today).collect { msgs ->
-                _messages.value = msgs
+            try {
+                val today = com.fityatra.app.ai.AiPromptBuilder.todayDateString()
+                aiCoachRepository.getMessagesByDate(today).collect { msgs ->
+                    _messages.value = msgs
+                }
+            } catch (e: Exception) {
+                _errorMessage.value = "Failed to load messages: ${e.message}"
             }
         }
     }
