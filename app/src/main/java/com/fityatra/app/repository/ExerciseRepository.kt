@@ -18,6 +18,8 @@ class ExerciseRepository(
     fun getAllCategories(): Flow<List<Category>> = categoryDao.getAllCategories()
     
     suspend fun getExerciseById(id: Long): Exercise? = exerciseDao.getExerciseById(id)
+
+    suspend fun getExerciseByName(name: String): Exercise? = exerciseDao.getExerciseByName(name)
     
     suspend fun getCategoryById(id: Long): Category? = categoryDao.getCategoryById(id)
     

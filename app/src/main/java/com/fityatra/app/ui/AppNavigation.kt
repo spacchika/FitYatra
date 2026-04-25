@@ -5,45 +5,50 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.fityatra.app.ui.screens.HomeScreen
-import com.fityatra.app.ui.screens.WorkoutSessionScreen
-import com.fityatra.app.ui.screens.ExerciseListScreen
-import com.fityatra.app.ui.screens.WorkoutPlansScreen
-import com.fityatra.app.ui.screens.CalendarScreen
-import com.fityatra.app.ui.screens.ProgressScreen
-import com.fityatra.app.ui.screens.SettingsScreen
-import com.fityatra.app.viewmodel.WorkoutSessionViewModel
-import com.fityatra.app.viewmodel.ExerciseViewModel
-import com.fityatra.app.viewmodel.WorkoutPlanViewModel
+import com.fityatra.app.data.AppPreferences
+import com.fityatra.app.ui.screens.*
+import com.fityatra.app.viewmodel.*
 
 @Composable
 fun AppNavigation(
     workoutSessionViewModel: WorkoutSessionViewModel,
     exerciseViewModel: ExerciseViewModel,
-    workoutPlanViewModel: WorkoutPlanViewModel
+    workoutPlanViewModel: WorkoutPlanViewModel,
+    onboardingViewModel: OnboardingViewModel,
+    aiCoachViewModel: AiCoachViewModel,
+    appPreferences: AppPreferences,
+    isOnboarded: Boolean
 ) {
     val navController = rememberNavController()
-    NavHost(navController = navController, startDestination = "home") {
-        composable("home") { 
-            HomeScreen(navController) 
+    val startDestination = if (isOnboarded) "ai_coach" else "onboarding"
+
+    NavHost(navController = navController, startDestination = startDestination) {
+        composable("onboarding") {
+            OnboardingScreen(navController, onboardingViewModel)
         }
-        composable("workout_session") { 
-            WorkoutSessionScreen(navController, workoutSessionViewModel) 
+        composable("ai_coach") {
+            AiCoachScreen(navController, aiCoachViewModel)
         }
-        composable("exercises") { 
-            ExerciseListScreen(navController, exerciseViewModel) 
+        composable("home") {
+            HomeScreen(navController)
         }
-        composable("workout_plans") { 
-            WorkoutPlansScreen(navController, workoutPlanViewModel) 
+        composable("workout_session") {
+            WorkoutSessionScreen(navController, workoutSessionViewModel)
         }
-        composable("calendar") { 
-            CalendarScreen(navController, workoutSessionViewModel) 
+        composable("exercises") {
+            ExerciseListScreen(navController, exerciseViewModel)
         }
-        composable("progress") { 
-            ProgressScreen(navController) 
+        composable("workout_plans") {
+            WorkoutPlansScreen(navController, workoutPlanViewModel)
         }
-        composable("settings") { 
-            SettingsScreen(navController) 
+        composable("calendar") {
+            CalendarScreen(navController, workoutSessionViewModel)
+        }
+        composable("progress") {
+            ProgressScreen(navController)
+        }
+        composable("settings") {
+            SettingsScreen(navController, appPreferences)
         }
     }
 }

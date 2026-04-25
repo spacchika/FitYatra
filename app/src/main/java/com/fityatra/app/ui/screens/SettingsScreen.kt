@@ -2,21 +2,25 @@ package com.fityatra.app.ui.screens
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
+import com.fityatra.app.data.AppPreferences
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(navController: NavHostController) {
+fun SettingsScreen(navController: NavHostController, appPreferences: AppPreferences) {
     var deloadFrequency by remember { mutableStateOf(8) }
     var deloadWeightDrop by remember { mutableStateOf(50) }
     var defaultRestTimer by remember { mutableStateOf(90) }
+    var apiKey by remember { mutableStateOf(appPreferences.claudeApiKey) }
+    var apiKeySaved by remember { mutableStateOf(false) }
     
     var showExportDialog by remember { mutableStateOf(false) }
     var showImportDialog by remember { mutableStateOf(false) }
@@ -34,7 +38,60 @@ fun SettingsScreen(navController: NavHostController) {
                 fontWeight = FontWeight.Bold
             )
         }
-        
+
+        // AI Coach Settings
+        item {
+            SettingsSection(title = "AI Coach") {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "Claude API Key",
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        "Required to enable AI coaching. Get your key at console.anthropic.com. Stored only on this device.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    OutlinedTextField(
+                        value = apiKey,
+                        onValueChange = {
+                            apiKey = it
+                            apiKeySaved = false
+                        },
+                        label = { Text("API Key") },
+                        placeholder = { Text("sk-ant-...") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (apiKeySaved) {
+                            Text(
+                                "Saved!",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(end = 8.dp)
+                            )
+                        }
+                        Button(
+                            onClick = {
+                                appPreferences.claudeApiKey = apiKey
+                                apiKeySaved = true
+                            }
+                        ) {
+                            Text("Save Key")
+                        }
+                    }
+                }
+            }
+        }
+
         // Workout Settings
         item {
             SettingsSection(title = "Workout Settings") {

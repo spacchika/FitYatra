@@ -15,6 +15,9 @@ interface ExerciseDao {
     @Query("SELECT * FROM exercises WHERE id = :id")
     suspend fun getExerciseById(id: Long): Exercise?
 
+    @Query("SELECT * FROM exercises WHERE name = :name COLLATE NOCASE LIMIT 1")
+    suspend fun getExerciseByName(name: String): Exercise?
+
     @Query("SELECT * FROM exercises WHERE isBuiltin = 1")
     fun getBuiltinExercises(): Flow<List<Exercise>>
 
