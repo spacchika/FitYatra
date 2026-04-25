@@ -381,7 +381,7 @@ private fun PlanReviewScreen(
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.SemiBold
                         )
-                        HorizontalDivider()
+                        Divider()
                         exercises.forEach { exercise ->
                             ExerciseRow(exercise)
                         }
