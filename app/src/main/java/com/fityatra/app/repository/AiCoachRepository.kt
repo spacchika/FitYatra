@@ -3,6 +3,7 @@ package com.fityatra.app.repository
 import com.fityatra.app.ai.AiPromptBuilder
 import com.fityatra.app.ai.ChatMessage
 import com.fityatra.app.ai.ClaudeAiService
+import com.fityatra.app.ai.ParsedPlan
 import com.fityatra.app.ai.WorkoutPlanParser
 import com.fityatra.app.data.AppPreferences
 import com.fityatra.app.data.dao.AiCoachMessageDao
@@ -140,6 +141,67 @@ class AiCoachRepository(
         )
 
         return parsePlanAndStore(replyText) ?: createDefaultPlan(profile)
+    }
+
+    /**
+     * Calls the AI to generate a plan and parses the response, but does NOT persist anything.
+     * Returns (rawAiResponse, parsedPlan) so the caller can show a preview before saving.
+     */
+    suspend fun generateOnboardingPlanPreview(profile: UserProfile): Pair<String, ParsedPlan> {
+        val systemPrompt = AiPromptBuilder.buildOnboardingSystemPrompt()
+        val userMessage = AiPromptBuilder.buildOnboardingUserMessage(profile)
+
+        val replyResult = aiService.sendMessage(
+            apiKey = appPreferences.claudeApiKey,
+            systemPrompt = systemPrompt,
+            history = emptyList(),
+            userMessage = userMessage
+        )
+
+        val replyText = replyResult.getOrElse { buildFallbackPlanMessage(profile) }
+
+        val parsedPlan = WorkoutPlanParser.parse(replyText)
+            ?: WorkoutPlanParser.parse(buildFallbackPlanMessage(profile))
+            ?: throw Exception("Could not parse a workout plan from the AI response.")
+
+        return Pair(replyText, parsedPlan)
+    }
+
+    /**
+     * Persists the AI conversation messages and a pre-parsed plan that the user has accepted.
+     * Returns the new plan id.
+     */
+    suspend fun saveOnboardingPlan(
+        profile: UserProfile,
+        aiResponse: String,
+        parsedPlan: ParsedPlan
+    ): Long {
+        val today = AiPromptBuilder.todayDateString()
+        val userMessage = AiPromptBuilder.buildOnboardingUserMessage(profile)
+
+        aiCoachMessageDao.insertMessage(
+            AiCoachMessage(role = "user", content = userMessage,
+                timestamp = System.currentTimeMillis(), sessionDate = today)
+        )
+        aiCoachMessageDao.insertMessage(
+            AiCoachMessage(role = "assistant", content = aiResponse,
+                timestamp = System.currentTimeMillis(), sessionDate = today)
+        )
+
+        return parsePlanAndStoreFromParsed(parsedPlan) ?: createDefaultPlan(profile)
+    }
+
+    private suspend fun parsePlanAndStoreFromParsed(parsedPlan: ParsedPlan): Long? {
+        val plan = WorkoutPlan(
+            name = parsedPlan.name,
+            description = "AI-generated plan",
+            daysPerWeek = parsedPlan.exercises.maxOfOrNull { it.dayOfWeek } ?: 3,
+            isActive = false
+        )
+        val planId = workoutRepository.insertWorkoutPlan(plan)
+        WorkoutPlanParser.toWorkoutPlanExercises(parsedPlan, planId)
+            .forEach { workoutRepository.insertWorkoutPlanExercise(it) }
+        return planId
     }
 
     private suspend fun parsePlanAndStore(aiResponse: String): Long? {

@@ -9,7 +9,10 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -20,6 +23,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
+import com.fityatra.app.ai.ParsedExercise
+import com.fityatra.app.ai.ParsedPlan
 import com.fityatra.app.viewmodel.OnboardingUiState
 import com.fityatra.app.viewmodel.OnboardingViewModel
 
@@ -31,7 +36,6 @@ fun OnboardingScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
-    // Navigate to ai_coach on success
     LaunchedEffect(uiState) {
         if (uiState is OnboardingUiState.Success) {
             navController.navigate("ai_coach") {
@@ -40,10 +44,27 @@ fun OnboardingScreen(
         }
     }
 
-    // Full-screen loading while AI generates the plan
-    if (uiState is OnboardingUiState.GeneratingPlan) {
-        PlanGeneratingScreen()
-        return
+    when (uiState) {
+        is OnboardingUiState.GeneratingPlan -> {
+            PlanLoadingScreen("Your AI Coach is building your personalised plan…")
+            return
+        }
+        is OnboardingUiState.SavingPlan -> {
+            PlanLoadingScreen("Saving your plan…")
+            return
+        }
+        is OnboardingUiState.PlanReview -> {
+            val state = uiState as OnboardingUiState.PlanReview
+            PlanReviewScreen(
+                plan = state.plan,
+                aiMessage = state.aiMessage,
+                onAccept = { viewModel.acceptPlan() },
+                onRegenerate = { viewModel.regeneratePlan() },
+                onBack = { viewModel.resetError() }
+            )
+            return
+        }
+        else -> { /* fall through to the 6-step wizard */ }
     }
 
     var currentStep by remember { mutableStateOf(1) }
@@ -221,7 +242,7 @@ fun OnboardingScreen(
                             currentStep++
                         } else {
                             val conditions = buildConditionsList(selectedConditions, otherCondition)
-                            viewModel.completeOnboarding(
+                            viewModel.requestPlanPreview(
                                 age = ageText.toIntOrNull() ?: 25,
                                 weightKg = weightText.toFloatOrNull() ?: 70f,
                                 heightCm = heightText.toFloatOrNull() ?: 170f,
@@ -235,14 +256,14 @@ fun OnboardingScreen(
                             )
                         }
                     },
-                    modifier = Modifier.weight(if (currentStep > 1) 1f else 1f),
+                    modifier = Modifier.weight(1f),
                     enabled = when (currentStep) {
                         1 -> ageText.isNotBlank() && weightText.isNotBlank() && heightText.isNotBlank()
                         2 -> selectedGoal.isNotBlank()
                         else -> true
                     }
                 ) {
-                    Text(if (currentStep < totalSteps) "Next" else "Create My Plan")
+                    Text(if (currentStep < totalSteps) "Next" else "Get My Plan")
                 }
             }
 
@@ -251,30 +272,173 @@ fun OnboardingScreen(
     }
 }
 
+// ── Loading screens ──────────────────────────────────────────────────────────
+
 @Composable
-private fun PlanGeneratingScreen() {
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
+private fun PlanLoadingScreen(message: String) {
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
             CircularProgressIndicator(modifier = Modifier.size(64.dp))
-            Text(
-                "Your AI Coach is creating your personalised plan...",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Medium
-            )
-            Text(
-                "This may take a moment.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Text(message, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Medium)
+            Text("This may take a moment.", style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
+
+// ── Plan review screen ───────────────────────────────────────────────────────
+
+@Composable
+private fun PlanReviewScreen(
+    plan: ParsedPlan,
+    aiMessage: String,
+    onAccept: () -> Unit,
+    onRegenerate: () -> Unit,
+    onBack: () -> Unit
+) {
+    val dayGroups = plan.exercises.groupBy { it.dayOfWeek }.toSortedMap()
+    val intro = aiMessage.substringBefore("[PLAN_START]").trim()
+        .lines().filter { it.isNotBlank() }.take(5).joinToString("\n")
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Your AI Plan") },
+                navigationIcon = {
+                    TextButton(onClick = onBack) { Text("← Edit") }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer
+                )
+            )
+        },
+        bottomBar = {
+            Surface(shadowElevation = 8.dp) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = onRegenerate,
+                        modifier = Modifier.weight(1f)
+                    ) { Text("Regenerate") }
+                    Button(
+                        onClick = onAccept,
+                        modifier = Modifier.weight(1f)
+                    ) { Text("Looks Good!") }
+                }
+            }
+        }
+    ) { paddingValues ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(vertical = 16.dp)
+        ) {
+            // Plan name
+            item {
+                Text(
+                    plan.name,
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            // AI intro text
+            if (intro.isNotBlank()) {
+                item {
+                    Text(
+                        intro,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            item {
+                Text(
+                    "Review your plan below, then accept or ask for a new one.",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+
+            // One card per training day
+            items(dayGroups.entries.toList()) { (day, exercises) ->
+                ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text(
+                            "Day $day — ${dayName(day)}",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        HorizontalDivider()
+                        exercises.forEach { exercise ->
+                            ExerciseRow(exercise)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ExerciseRow(exercise: ParsedExercise) {
+    val (chipColor, chipTextColor) = when (exercise.type.lowercase()) {
+        "warmup"   -> MaterialTheme.colorScheme.tertiaryContainer to
+                      MaterialTheme.colorScheme.onTertiaryContainer
+        "cooldown" -> MaterialTheme.colorScheme.secondaryContainer to
+                      MaterialTheme.colorScheme.onSecondaryContainer
+        else       -> MaterialTheme.colorScheme.primaryContainer to
+                      MaterialTheme.colorScheme.onPrimaryContainer
+    }
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Surface(
+            color = chipColor,
+            shape = RoundedCornerShape(4.dp)
+        ) {
+            Text(
+                exercise.type.uppercase(),
+                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                style = MaterialTheme.typography.labelSmall,
+                color = chipTextColor
+            )
+        }
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(exercise.name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+            val detail = buildString {
+                append("${exercise.sets}×${exercise.reps} reps")
+                if (exercise.weightKg > 0) append(" · ${exercise.weightKg}kg")
+                append(" · ${exercise.restSeconds}s rest")
+            }
+            Text(detail, style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+private fun dayName(dayOfWeek: Int) = when (dayOfWeek) {
+    1 -> "Monday"; 2 -> "Tuesday"; 3 -> "Wednesday"; 4 -> "Thursday"
+    5 -> "Friday"; 6 -> "Saturday"; 7 -> "Sunday"; else -> "Day $dayOfWeek"
+}
+
+// ── Wizard step composables ──────────────────────────────────────────────────
 
 @Composable
 private fun BodyMetricsStep(
@@ -480,7 +644,7 @@ private fun SummaryStep(
     onRetry: () -> Unit
 ) {
     Text("Review Your Profile", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-    Text("Everything look correct? Tap 'Create My Plan' and your AI Coach will build a personalised workout plan.",
+    Text("Everything look correct? Tap 'Get My Plan' and your AI Coach will suggest a personalised workout plan for you to review.",
         style = MaterialTheme.typography.bodyMedium)
     Spacer(Modifier.height(8.dp))
 
