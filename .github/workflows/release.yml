@@ -37,13 +37,29 @@ jobs:
           distribution: "temurin"
           cache: gradle
 
+      # ── Android SDK ───────────────────────────────────────────────────────
+      # ubuntu-latest ships Android SDK at $ANDROID_SDK_ROOT.
+      # The committed local.properties has a Windows path so we overwrite it.
+      - name: Write local.properties
+        run: echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
+
       # ── Gradle permissions ────────────────────────────────────────────────
       - name: Make gradlew executable
         run: chmod +x ./gradlew
 
+      # ── Gradle cache ──────────────────────────────────────────────────────
+      - name: Cache Gradle packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: gradle-
+
       # ── Debug APK (always built) ──────────────────────────────────────────
       - name: Build debug APK
-        run: ./gradlew assembleDebug --no-daemon
+        run: ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
